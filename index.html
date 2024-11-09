@@ -3,85 +3,252 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RL Chatbot</title>
+    <title>RL Chatbot | AI Research Project</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .chat-box { max-width: 600px; margin: auto; }
-        .message { margin-bottom: 10px; padding: 10px; border-radius: 5px; }
-        .user { background-color: #e1f5fe; }
-        .bot { background-color: #e0e0e0; }
-        .feedback-buttons { margin-top: 5px; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .typing-indicator {
+            animation: pulse 1s infinite;
+        }
+        .message-appear {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .scrollbar-custom::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-custom::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .scrollbar-custom::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
-<body>
-    <div class="chat-box" id="chat-box">
-        <h2>RL Chatbot</h2>
-        <div id="messages"></div>
-        <input type="text" id="user-input" placeholder="Type a message..." style="width: 80%;">
-        <button onclick="sendMessage()">Send</button>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="bg-white rounded-t-xl shadow-lg p-6 mb-1">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-robot text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800">RL Chatbot</h1>
+                        <p class="text-sm text-gray-500">Powered by Reinforcement Learning</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span id="status-indicator" class="w-3 h-3 bg-green-500 rounded-full"></span>
+                    <span class="text-sm text-gray-500">Online</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="bg-white rounded-b-xl shadow-lg">
+            <!-- Messages Area -->
+            <div id="messages" class="h-[500px] overflow-y-auto p-6 space-y-4 scrollbar-custom">
+                <!-- Welcome Message -->
+                <div class="message-appear flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="bg-gray-100 rounded-lg p-4 max-w-[80%]">
+                            <p class="text-gray-800">Hello! I'm an RL-powered chatbot. I learn from our interactions to provide better responses. How can I help you today?</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="border-t p-4">
+                <div class="flex space-x-4">
+                    <div class="flex-1 relative">
+                        <input type="text" id="user-input" 
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Type your message here..."
+                               onkeypress="if(event.key === 'Enter') sendMessage()">
+                        <div id="typing-indicator" class="hidden absolute bottom-full left-0 mb-2 ml-4 text-sm text-gray-500">
+                            <span class="typing-indicator">Bot is typing...</span>
+                        </div>
+                    </div>
+                    <button onclick="sendMessage()" 
+                            class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                        <i class="fas fa-paper-plane mr-2"></i>Send
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Stats -->
+        <div class="mt-6 grid grid-cols-3 gap-4">
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">Training Episodes</h3>
+                <p class="text-2xl font-bold text-gray-800" id="training-episodes">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">Avg Response Time</h3>
+                <p class="text-2xl font-bold text-gray-800" id="avg-response-time">0ms</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">Model Confidence</h3>
+                <p class="text-2xl font-bold text-gray-800" id="model-confidence">0%</p>
+            </div>
+        </div>
     </div>
 
     <script>
-        async function sendMessage() {
-            const userInput = document.getElementById("user-input").value;
-            if (!userInput) return;
+        let messageCount = 0;
+        let totalResponseTime = 0;
 
-            // Display user message
-            displayMessage(userInput, "user");
-
-            // Send the message to the server
-            const response = await fetch("/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query: userInput })
-            });
-            const data = await response.json();
-
-            // Display bot response
-            if (data.response) {
-                displayMessage(data.response, "bot");
-                addFeedbackButtons(userInput, data.response);
-            }
+        function updateStats(responseTime, confidence) {
+            messageCount++;
+            totalResponseTime += responseTime;
+            
+            document.getElementById('training-episodes').textContent = messageCount;
+            document.getElementById('avg-response-time').textContent = 
+                `${Math.round(totalResponseTime / messageCount)}ms`;
+            document.getElementById('model-confidence').textContent = 
+                `${Math.round(confidence * 100)}%`;
         }
 
-        function displayMessage(text, sender) {
+        async function sendMessage() {
+            const input = document.getElementById("user-input");
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Clear input and disable
+            input.value = "";
+            input.disabled = true;
+
+            // Add user message
+            addMessage(message, 'user');
+
+            // Show typing indicator
+            document.getElementById('typing-indicator').classList.remove('hidden');
+
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch("/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: message })
+                });
+
+                const data = await response.json();
+                const responseTime = performance.now() - startTime;
+
+                // Hide typing indicator
+                document.getElementById('typing-indicator').classList.add('hidden');
+
+                if (data.response) {
+                    // Add bot message
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for natural feel
+                    addMessage(data.response, 'bot');
+                    
+                    // Update stats
+                    updateStats(responseTime, data.confidence || 0.7);
+
+                    // Add feedback buttons
+                    addFeedbackButtons(message, data.response);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Sorry, I encountered an error. Please try again.', 'bot', true);
+            }
+
+            // Re-enable input
+            input.disabled = false;
+            input.focus();
+        }
+
+        function addMessage(text, sender, isError = false) {
             const messagesDiv = document.getElementById("messages");
             const messageDiv = document.createElement("div");
-            messageDiv.classList.add("message", sender);
-            messageDiv.textContent = text;
+            messageDiv.className = `message-appear flex items-start space-x-3 ${sender === 'user' ? 'flex-row-reverse' : ''}`;
+
+            const avatar = document.createElement("div");
+            avatar.className = `w-8 h-8 ${sender === 'user' ? 'bg-blue-600' : 'bg-blue-500'} rounded-full flex items-center justify-center`;
+            avatar.innerHTML = sender === 'user' ? 
+                '<i class="fas fa-user text-white text-sm"></i>' : 
+                '<i class="fas fa-robot text-white text-sm"></i>';
+
+            const contentWrapper = document.createElement("div");
+            contentWrapper.className = "flex-1";
+
+            const content = document.createElement("div");
+            content.className = `${sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'} 
+                               ${isError ? 'bg-red-100 text-red-800' : ''} 
+                               rounded-lg p-4 max-w-[80%] ${sender === 'user' ? 'ml-auto' : ''}`;
+            content.textContent = text;
+
+            contentWrapper.appendChild(content);
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(contentWrapper);
             messagesDiv.appendChild(messageDiv);
-            document.getElementById("user-input").value = "";  // Clear input field
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
         function addFeedbackButtons(query, response) {
-            const feedbackDiv = document.createElement("div");
-            feedbackDiv.classList.add("feedback-buttons");
-
-            // Positive feedback button
-            const positiveBtn = document.createElement("button");
-            positiveBtn.textContent = "👍";
-            positiveBtn.onclick = () => sendFeedback(query, response, 1);
-            feedbackDiv.appendChild(positiveBtn);
-
-            // Negative feedback button
-            const negativeBtn = document.createElement("button");
-            negativeBtn.textContent = "👎";
-            negativeBtn.onclick = () => sendFeedback(query, response, 0);
-            feedbackDiv.appendChild(negativeBtn);
-
             const messagesDiv = document.getElementById("messages");
+            const feedbackDiv = document.createElement("div");
+            feedbackDiv.className = "flex items-center space-x-4 ml-11 mt-2";
+
+            const buttons = [
+                { icon: 'fas fa-thumbs-up', text: 'Helpful', value: 1 },
+                { icon: 'fas fa-thumbs-down', text: 'Not Helpful', value: 0 }
+            ];
+
+            buttons.forEach(button => {
+                const btn = document.createElement("button");
+                btn.className = `flex items-center space-x-2 px-3 py-1 rounded-full text-sm 
+                                hover:bg-gray-200 transition-colors duration-200
+                                ${button.value ? 'text-green-600' : 'text-red-600'}`;
+                btn.innerHTML = `<i class="${button.icon}"></i><span>${button.text}</span>`;
+                btn.onclick = async () => {
+                    await sendFeedback(query, response, button.value);
+                    feedbackDiv.innerHTML = '<span class="text-sm text-gray-500">Thank you for your feedback!</span>';
+                };
+                feedbackDiv.appendChild(btn);
+            });
+
             messagesDiv.appendChild(feedbackDiv);
         }
 
         async function sendFeedback(query, response, feedback) {
-            await fetch("/feedback", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query, response, feedback })
-            });
-            alert("Thank you for your feedback!");
+            try {
+                await fetch("/feedback", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query, response, feedback })
+                });
+            } catch (error) {
+                console.error('Error sending feedback:', error);
+            }
         }
+
+        // Enter key handler
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
     </script>
 </body>
 </html>
