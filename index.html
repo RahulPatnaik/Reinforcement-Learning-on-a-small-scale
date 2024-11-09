@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RL Chatbot</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .chat-box { max-width: 600px; margin: auto; }
+        .message { margin-bottom: 10px; padding: 10px; border-radius: 5px; }
+        .user { background-color: #e1f5fe; }
+        .bot { background-color: #e0e0e0; }
+        .feedback-buttons { margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="chat-box" id="chat-box">
+        <h2>RL Chatbot</h2>
+        <div id="messages"></div>
+        <input type="text" id="user-input" placeholder="Type a message..." style="width: 80%;">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        async function sendMessage() {
+            const userInput = document.getElementById("user-input").value;
+            if (!userInput) return;
+
+            // Display user message
+            displayMessage(userInput, "user");
+
+            // Send the message to the server
+            const response = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query: userInput })
+            });
+            const data = await response.json();
+
+            // Display bot response
+            if (data.response) {
+                displayMessage(data.response, "bot");
+                addFeedbackButtons(userInput, data.response);
+            }
+        }
+
+        function displayMessage(text, sender) {
+            const messagesDiv = document.getElementById("messages");
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("message", sender);
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            document.getElementById("user-input").value = "";  // Clear input field
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function addFeedbackButtons(query, response) {
+            const feedbackDiv = document.createElement("div");
+            feedbackDiv.classList.add("feedback-buttons");
+
+            // Positive feedback button
+            const positiveBtn = document.createElement("button");
+            positiveBtn.textContent = "👍";
+            positiveBtn.onclick = () => sendFeedback(query, response, 1);
+            feedbackDiv.appendChild(positiveBtn);
+
+            // Negative feedback button
+            const negativeBtn = document.createElement("button");
+            negativeBtn.textContent = "👎";
+            negativeBtn.onclick = () => sendFeedback(query, response, 0);
+            feedbackDiv.appendChild(negativeBtn);
+
+            const messagesDiv = document.getElementById("messages");
+            messagesDiv.appendChild(feedbackDiv);
+        }
+
+        async function sendFeedback(query, response, feedback) {
+            await fetch("/feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query, response, feedback })
+            });
+            alert("Thank you for your feedback!");
+        }
+    </script>
+</body>
+</html>
